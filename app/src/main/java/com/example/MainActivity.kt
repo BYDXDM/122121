@@ -157,7 +157,10 @@ fun ConverterApp(modifier: Modifier = Modifier, viewModel: MainViewModel = viewM
     var selectedFilterTag by remember { mutableStateOf("全部") }
     val animatedProgress by animateFloatAsState(
         targetValue = taskProgress.coerceIn(0f, 1f),
-        animationSpec = tween(durationMillis = 200),
+        animationSpec = androidx.compose.animation.core.spring(
+            dampingRatio = 0.8f,
+            stiffness = 300f
+        ),
         label = "task_progress_anim"
     )
 
@@ -620,7 +623,7 @@ fun ConverterApp(modifier: Modifier = Modifier, viewModel: MainViewModel = viewM
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.25f)),
+                                    .background(com.example.ui.theme.AppSurfaceDarkOverlay),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text("炫彩极光", style = MaterialTheme.typography.labelSmall, color = Color.White)
@@ -646,7 +649,7 @@ fun ConverterApp(modifier: Modifier = Modifier, viewModel: MainViewModel = viewM
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.25f)),
+                                    .background(com.example.ui.theme.AppSurfaceDarkOverlay),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text("温暖柔和", style = MaterialTheme.typography.labelSmall, color = Color.White)
