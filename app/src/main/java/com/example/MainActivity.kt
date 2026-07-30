@@ -460,7 +460,7 @@ fun ConverterApp(modifier: Modifier = Modifier, viewModel: MainViewModel = viewM
                     Text("个性化设置 (背景与主题)", style = MaterialTheme.typography.titleLarge)
                     TextButton(onClick = { 
                         viewModel.resetAppearance(context)
-                        Toast.makeText(context, "已恢复默认外观与主题", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "已恢复默认外观与主题(自定义图标+自定义背景)", Toast.LENGTH_SHORT).show()
                     }) {
                         Text("重置默认")
                     }
@@ -491,7 +491,8 @@ fun ConverterApp(modifier: Modifier = Modifier, viewModel: MainViewModel = viewM
                                     BackgroundType.CUSTOM_IMAGE -> "自定义相册图片"
                                     BackgroundType.PRESET_ABSTRACT_GLOW -> "炫彩极光"
                                     BackgroundType.PRESET_WARM_PASTEL -> "温暖柔和"
-                                    BackgroundType.DEFAULT -> "系统默认背景"
+                                    BackgroundType.DEFAULT_CUSTOM -> "自定义默认背景"
+                    BackgroundType.DEFAULT -> "系统默认背景"
                                 }
                             } (SharedPreferences 本地固化)",
                             style = MaterialTheme.typography.bodySmall
@@ -657,7 +658,33 @@ fun ConverterApp(modifier: Modifier = Modifier, viewModel: MainViewModel = viewM
                         }
                     }
 
-                    // Option 4: Default
+                    // Option 4: DEFAULT_CUSTOM (your custom bg)
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(90.dp)
+                            .clickable { viewModel.updateBackgroundType(BackgroundType.DEFAULT_CUSTOM) },
+                        border = if (bgSettings.type == BackgroundType.DEFAULT_CUSTOM) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+                    ) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            com.example.ui.SafeImage(
+                                drawableRes = R.drawable.bg_default_custom,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(com.example.ui.theme.AppSurfaceDarkOverlay),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("自定义默认", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                            }
+                        }
+                    }
+
+                    // Option 5: Default (no bg)
                     Card(
                         modifier = Modifier
                             .weight(1f)
@@ -741,6 +768,14 @@ fun ConverterApp(modifier: Modifier = Modifier, viewModel: MainViewModel = viewM
                 com.example.ui.SafeImage(
                     drawableRes = R.drawable.img_bg_warm_pastel_1785330342798,
                     contentDescription = "温暖柔和背景",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            BackgroundType.DEFAULT_CUSTOM -> {
+                com.example.ui.SafeImage(
+                    drawableRes = R.drawable.bg_default_custom,
+                    contentDescription = "默认自定义背景",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )

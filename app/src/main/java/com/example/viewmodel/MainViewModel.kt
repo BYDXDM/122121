@@ -22,20 +22,22 @@ import kotlinx.coroutines.Dispatchers
 
 enum class BackgroundType {
     DEFAULT,
+    DEFAULT_CUSTOM,
     PRESET_ABSTRACT_GLOW,
     PRESET_WARM_PASTEL,
     CUSTOM_IMAGE
 }
 
 enum class AppIconType(val aliasName: String, val displayName: String, val drawableRes: Int) {
-    DEFAULT("com.example.MainActivity", "默认极简", R.drawable.ic_app_launcher_logo_1785330614683),
+    DEFAULT("com.example.MainActivity", "自定义图标", R.drawable.ic_default_custom),
+    ORIGINAL("com.example.MainActivityOriginal", "默认极简", R.drawable.ic_app_launcher_logo_1785330614683),
     CYBER("com.example.MainActivityCyber", "赛博极光", R.drawable.icon_cyber_neon_1785330795598),
     WARM("com.example.MainActivityWarm", "暖色柔光", R.drawable.icon_warm_sunset_1785330809481),
     GOLD("com.example.MainActivityGold", "尊享黑金", R.drawable.icon_gold_dark_1785330822356)
 }
 
 data class BackgroundSettings(
-    val type: BackgroundType = BackgroundType.DEFAULT,
+    val type: BackgroundType = BackgroundType.DEFAULT_CUSTOM,
     val customUriString: String? = null,
     val dimAlpha: Float = 0.35f,
     val cardAlpha: Float = 0.88f
@@ -69,8 +71,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun loadBackgroundSettings(): BackgroundSettings {
-        val typeName = prefs.getString("bg_type", BackgroundType.DEFAULT.name) ?: BackgroundType.DEFAULT.name
-        val type = try { BackgroundType.valueOf(typeName) } catch (e: Exception) { BackgroundType.DEFAULT }
+        val typeName = prefs.getString("bg_type", BackgroundType.DEFAULT_CUSTOM.name) ?: BackgroundType.DEFAULT_CUSTOM.name
+        val type = try { BackgroundType.valueOf(typeName) } catch (e: Exception) { BackgroundType.DEFAULT_CUSTOM }
         val uri = prefs.getString("bg_uri", null)
         val dim = prefs.getFloat("bg_dim", 0.35f)
         val cardAlpha = prefs.getFloat("card_alpha", 0.88f)
@@ -183,10 +185,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun resetAppearance(context: Context) {
-        val defaultBg = BackgroundSettings()
+        val defaultBg = BackgroundSettings(BackgroundType.DEFAULT_CUSTOM)
         _bgSettings.value = defaultBg
         _themeMode.value = ThemeMode.SYSTEM
-        _currentIcon.value = AppIconType.DEFAULT
+        _currentIcon.value = AppIconType.ORIGINAL
 
         prefs.edit()
             .putString("bg_type", defaultBg.type.name)
