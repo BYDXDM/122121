@@ -558,8 +558,8 @@ fun ConverterApp(modifier: Modifier = Modifier, viewModel: MainViewModel = viewM
                                 verticalArrangement = Arrangement.Center
                             ) {
                                 Image(
-                                    painter = painterResource(id = icon.drawableRes),
-                                    contentDescription = icon.displayName,
+                                com.example.ui.SafeImage(
+                                    drawableRes = icon.drawableRes,
                                     modifier = Modifier.size(42.dp),
                                     contentScale = ContentScale.Crop
                                 )
@@ -612,8 +612,8 @@ fun ConverterApp(modifier: Modifier = Modifier, viewModel: MainViewModel = viewM
                     ) {
                         Box(modifier = Modifier.fillMaxSize()) {
                             Image(
-                                painter = painterResource(id = R.drawable.img_bg_abstract_glow_1785330326995),
-                                contentDescription = null,
+                            com.example.ui.SafeImage(
+                                drawableRes = R.drawable.img_bg_abstract_glow_1785330326995,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
                             )
@@ -638,8 +638,8 @@ fun ConverterApp(modifier: Modifier = Modifier, viewModel: MainViewModel = viewM
                     ) {
                         Box(modifier = Modifier.fillMaxSize()) {
                             Image(
-                                painter = painterResource(id = R.drawable.img_bg_warm_pastel_1785330342798),
-                                contentDescription = null,
+                            com.example.ui.SafeImage(
+                                drawableRes = R.drawable.img_bg_warm_pastel_1785330342798,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
                             )
@@ -728,16 +728,16 @@ fun ConverterApp(modifier: Modifier = Modifier, viewModel: MainViewModel = viewM
             }
             BackgroundType.PRESET_ABSTRACT_GLOW -> {
                 Image(
-                    painter = painterResource(id = R.drawable.img_bg_abstract_glow_1785330326995),
-                    contentDescription = "炫彩极光背景",
+                com.example.ui.SafeImage(
+                    drawableRes = R.drawable.img_bg_abstract_glow_1785330326995,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
             }
             BackgroundType.PRESET_WARM_PASTEL -> {
                 Image(
-                    painter = painterResource(id = R.drawable.img_bg_warm_pastel_1785330342798),
-                    contentDescription = "温暖柔和背景",
+                com.example.ui.SafeImage(
+                    drawableRes = R.drawable.img_bg_warm_pastel_1785330342798,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
