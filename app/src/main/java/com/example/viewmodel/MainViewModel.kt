@@ -134,22 +134,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val pm = context.packageManager
                 val pkgName = context.packageName
 
-                // Only enable/disable activity-aliases (skip primary MainActivity to prevent OS process termination)
+                // Enable the selected icon, disable ALL others including MainActivity
                 AppIconType.values().forEach { icon ->
-                    if (icon.aliasName != "com.example.MainActivity") {
-                        val state = if (icon == iconType) {
-                            PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-                        } else {
-                            PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-                        }
-                        val componentName = ComponentName(pkgName, icon.aliasName)
-                        if (pm.getComponentEnabledSetting(componentName) != state) {
-                            pm.setComponentEnabledSetting(
-                                componentName,
-                                state,
-                                PackageManager.DONT_KILL_APP
-                            )
-                        }
+                    val state = if (icon == iconType) {
+                        PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                    } else {
+                        PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                    }
+                    val componentName = ComponentName(pkgName, icon.aliasName)
+                    if (pm.getComponentEnabledSetting(componentName) != state) {
+                        pm.setComponentEnabledSetting(
+                            componentName,
+                            state,
+                            PackageManager.DONT_KILL_APP
+                        )
                     }
                 }
             } catch (e: Exception) {
