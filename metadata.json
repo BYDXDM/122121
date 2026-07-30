@@ -1,0 +1,8 @@
+{
+  "name": "Remix Remix 格式转换",
+  "description": "支持EPUB转TXT、MP4转MP3及哔哩哔哩/X/YouTube多源网络视频下载",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
