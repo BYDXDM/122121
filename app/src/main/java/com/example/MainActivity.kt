@@ -111,6 +111,7 @@ class MainActivity : ComponentActivity() {
 fun ConverterApp(modifier: Modifier = Modifier, viewModel: MainViewModel = viewModel()) {
     var epubUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var mp4Uris by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var webpUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
 
     var videoUrl by remember { mutableStateOf("") }
     var fetchedVideoTitle by remember { mutableStateOf<String?>(null) }
@@ -198,6 +199,10 @@ fun ConverterApp(modifier: Modifier = Modifier, viewModel: MainViewModel = viewM
 
     val mp4Picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) mp4Uris = uris
+    }
+
+    val webpPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        if (uris.isNotEmpty()) webpUris = uris
     }
 
     val epubSaver = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -312,6 +317,65 @@ fun ConverterApp(modifier: Modifier = Modifier, viewModel: MainViewModel = viewM
                     }
                 } finally {
                     mp4Uris = emptyList()
+                    currentJob = null
+                }
+            }
+        }
+    }
+
+    val webpSaver = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        uri?.let { treeUri ->
+            currentJob = coroutineScope.launch {
+                currentTaskName = "批量转换 WebP"
+                taskProgress = 0f
+                taskProgressText = "正在准备文件列表..."
+                var hasError = false
+                try {
+                    val total = webpUris.size
+                    for ((index, inputUri) in webpUris.withIndex()) {
+                        if (!isActive) break
+                        val fileName = getFileName(context, inputUri)
+                        val baseName = fileName.substringBeforeLast(".")
+                        val docDir = DocumentFile.fromTreeUri(context, treeUri)
+                        val docFile = docDir?.createFile("image/jpeg", "$baseName.jpg")
+                        val fileBasePct = index.toFloat() / total
+                        val filePctRange = 1f / total
+
+                        taskProgress = fileBasePct
+                        taskProgressText = "转换第 ${index + 1}/$total 个: $fileName (0%)"
+
+                        if (docFile != null) {
+                            val success = doConversionWithRetry(context, inputUri, docFile.uri) { ctx, inUri, outUri ->
+                                convertWebpToJpg(
+                                    context = ctx,
+                                    inputUri = inUri,
+                                    outputUri = outUri,
+                                    onProgress = { pct, status ->
+                                        updateProgressOnMain(pct, "处理中 (${index + 1}/$total): $fileName (${(pct * 100).toInt()}%)")
+                                    },
+                                    basePct = fileBasePct,
+                                    pctRange = filePctRange,
+                                    taskLabel = "WebP转JPG"
+                                )
+                            }
+                            viewModel.addHistory(fileName, "WebP转JPG", success, if (success) docFile.uri.toString() else null)
+                            if (!success) hasError = true
+                        } else {
+                            hasError = true
+                        }
+                    }
+                    if (isActive) {
+                        taskProgress = 1.0f
+                        taskProgressText = "批量转换已全部完成 (100%)"
+                        if (hasError) {
+                            errorMessage = "批量转换 WebP 时有文件转换失败达3次！"
+                            showErrorDialog = true
+                        } else {
+                            Toast.makeText(context, "批量保存成功！", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } finally {
+                    webpUris = emptyList()
                     currentJob = null
                 }
             }
@@ -925,7 +989,42 @@ fun ConverterApp(modifier: Modifier = Modifier, viewModel: MainViewModel = viewM
                     }
                 }
             }
-            
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = cardContainerColor)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("批量 WebP转JPG", style = MaterialTheme.typography.titleLarge)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(onClick = { webpPicker.launch(arrayOf("image/webp")) }, enabled = !isConverting) {
+                            Text("批量导入 WebP文件")
+                        }
+                        if (webpUris.isNotEmpty()) {
+                            OutlinedButton(onClick = { webpUris = emptyList() }) {
+                                Text("清空")
+                            }
+                        }
+                    }
+                    if (webpUris.isNotEmpty()) {
+                        Text(getBatchFileSizeText(context, webpUris), style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Button(
+                        onClick = { webpSaver.launch(null) },
+                        enabled = webpUris.isNotEmpty() && !isConverting
+                    ) {
+                        Text("批量转换并保存为JPG")
+                    }
+                }
+            }
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = cardContainerColor)
@@ -1130,6 +1229,7 @@ fun ConverterApp(modifier: Modifier = Modifier, viewModel: MainViewModel = viewM
                 when (selectedFilterTag) {
                     "EPUB" -> historyList.filter { it.conversionType.contains("EPUB", ignoreCase = true) }
                     "MP4" -> historyList.filter { it.conversionType.contains("MP4", ignoreCase = true) }
+                    "WebP" -> historyList.filter { it.conversionType.contains("WebP", ignoreCase = true) }
                     "网络" -> historyList.filter { it.conversionType.contains("下载", ignoreCase = true) }
                     "B站" -> historyList.filter { it.fileName.contains("bilibili", ignoreCase = true) || it.conversionType.contains("B站", ignoreCase = true) }
                     "YouTube" -> historyList.filter { it.fileName.contains("youtube", ignoreCase = true) || it.conversionType.contains("YouTube", ignoreCase = true) }
@@ -1690,4 +1790,52 @@ fun suggestFileName(url: String, extension: String, customTitle: String? = null)
     }
     val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(Date())
     return "media_download_$timeStamp.$extension"
+}
+
+suspend fun convertWebpToJpg(
+    context: Context,
+    inputUri: Uri,
+    outputUri: Uri,
+    onProgress: ((Float, String) -> Unit)? = null,
+    basePct: Float = 0f,
+    pctRange: Float = 1f,
+    taskLabel: String = "WebP转JPG"
+): Boolean {
+    return withContext(Dispatchers.IO) {
+        try {
+            onProgress?.invoke(basePct, "$taskLabel: 0%")
+
+            val inputStream = context.contentResolver.openInputStream(inputUri)
+                ?: return@withContext false
+            val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+            inputStream.close()
+
+            if (bitmap == null) {
+                AppLogger.log(context, "WebP 解码失败: 无法解析图片文件")
+                return@withContext false
+            }
+
+            onProgress?.invoke(basePct + pctRange * 0.5f, "$taskLabel: 50% (编码中)")
+
+            val outputStream = context.contentResolver.openOutputStream(outputUri)
+                ?: return@withContext false
+
+            bitmap.compress(
+                android.graphics.Bitmap.CompressFormat.JPEG,
+                90,
+                outputStream
+            )
+            outputStream.flush()
+            outputStream.close()
+            bitmap.recycle()
+
+            onProgress?.invoke(basePct + pctRange, "$taskLabel: 100%")
+            AppLogger.log(context, "WebP 转 JPG 成功")
+            true
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            AppLogger.log(context, "WebP 转 JPG 失败: ${e.message}")
+            false
+        }
+    }
 }
