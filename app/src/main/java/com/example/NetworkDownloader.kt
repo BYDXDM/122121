@@ -742,7 +742,7 @@ object NetworkDownloader {
     // ============================================================================
     // 3. YouTube 视频下载与三种以上解析备用方案
     // ============================================================================
-        private suspend fun downloadYouTubeMultiSource(
+            private suspend fun downloadYouTubeMultiSource(
         context: Context,
         rawUrl: String,
         outputUri: Uri,
@@ -762,129 +762,154 @@ object NetworkDownloader {
         var mediaUrl: String? = null
         var isAudioStreamDirect = false
 
-        // 方案 1: yt-dlp Web API (主方案 - 自建或公共实例)
-        AppLogger.log(context, "【YouTube-方案1】尝试 yt-dlp Web API...")
+        // 方案 1: YouTube 原生页面 PlayerResponse 解析（最稳定）
+        AppLogger.log(context, "【YouTube-方案1】尝试原生页面 PlayerResponse 解析...")
         try {
-            val instances = listOf(
-                "https://yt-dlp-api.fly.dev",
-                "https://ytdl.how2.pp.ua",
-                "https://ytdl.how2.pp.ua/api"
-            )
-            for (baseUrl in instances) {
-                try {
-                    val apiUrl = if (baseUrl.contains("/api")) 
-                        "$baseUrl?url=https://www.youtube.com/watch?v=$videoId&format=${if(isMp3) "mp3" else "mp4"}"
-                    else
-                        "$baseUrl/api?url=https://www.youtube.com/watch?v=$videoId&format=${if(isMp3) "mp3" else "mp4"}"
-                    
-                    val req = Request.Builder()
-                        .url(apiUrl)
-                        .header("User-Agent", USER_AGENT)
-                        .header("Accept", "application/json")
-                        .build()
-                    client.newCall(req).execute().use { res ->
-                        if (res.isSuccessful) {
-                            val body = res.body?.string() ?: ""
-                            val json = try { JSONObject(body) } catch (e: Exception) { null }
-                            if (json != null) {
-                                // Try common response formats
-                                val url = json.optString("url")
-                                    ?: json.optString("download_url")
-                                    ?: json.optString("media_url")
-                                    ?: json.optString("link")
-                                if (url.startsWith("http")) {
-                                    mediaUrl = url
-                                    if (isMp3) isAudioStreamDirect = true
-                                    AppLogger.log(context, "【YouTube-方案1】从 $baseUrl 解析成功")
+            val ytPageReq = Request.Builder()
+                .url("https://www.youtube.com/watch?v=$videoId")
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .header("Accept-Language", "en-US,en;q=0.5")
+                .build()
+            client.newCall(ytPageReq).execute().use { ytRes ->
+                val html = ytRes.body?.string() ?: ""
+                val prRegex = Regex("""ytInitialPlayerResponse\s*=\s*(\{.*?\});""")
+                val prMatch = prRegex.find(html)
+                if (prMatch != null) {
+                    val json = JSONObject(prMatch.groupValues[1])
+                    val streamingData = json.optJSONObject("streamingData")
+                    if (streamingData != null) {
+                        if (isMp3) {
+                            val adapt = streamingData.optJSONArray("adaptiveFormats")
+                            if (adapt != null) {
+                                for (i in 0 until adapt.length()) {
+                                    val item = adapt.getJSONObject(i)
+                                    val mime = item.optString("mimeType", "")
+                                    if (mime.contains("audio/mp4")) {
+                                        mediaUrl = item.optString("url")
+                                        if (!mediaUrl.isNullOrEmpty() && mediaUrl!!.startsWith("http")) {
+                                            isAudioStreamDirect = true
+                                            break
+                                        }
+                                    }
+                                }
+                                if (mediaUrl.isNullOrEmpty()) {
+                                    for (i in 0 until adapt.length()) {
+                                        val item = adapt.getJSONObject(i)
+                                        val mime = item.optString("mimeType", "")
+                                        if (mime.contains("audio/")) {
+                                            mediaUrl = item.optString("url")
+                                            if (!mediaUrl.isNullOrEmpty() && mediaUrl!!.startsWith("http")) {
+                                                isAudioStreamDirect = true
+                                                break
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
+                        if (mediaUrl.isNullOrEmpty()) {
+                            val formats = streamingData.optJSONArray("formats")
+                            if (formats != null && formats.length() > 0) {
+                                for (i in 0 until formats.length()) {
+                                    val item = formats.getJSONObject(i)
+                                    mediaUrl = item.optString("url")
+                                    if (!mediaUrl.isNullOrEmpty() && mediaUrl!!.startsWith("http")) break
+                                }
+                            }
+                        }
+                        if (!mediaUrl.isNullOrEmpty()) {
+                            AppLogger.log(context, "【YouTube-方案1】原生页面解析成功")
+                        }
                     }
-                    if (!mediaUrl.isNullOrEmpty()) break
-                } catch (e: Exception) { /* try next instance */ }
+                }
             }
         } catch (e: Exception) {
             AppLogger.log(context, "【YouTube-方案1】失败: ${e.message}")
         }
 
-        // 方案 2: SaveTube / yt5s 稳定下载站 API (备用方案 2)
+        // 方案 2: Invidious 分布式 API (备用)
         if (mediaUrl.isNullOrEmpty()) {
-            AppLogger.log(context, "【YouTube-方案2】尝试 yt5s.su / yt1s.su 下载站 API...")
-            try {
-                val apiList = listOf(
-                    "https://yt5s.su/api/convert?url=https://www.youtube.com/watch?v=$videoId&format=${if(isMp3) "mp3" else "mp4"}",
-                    "https://yt1s.su/api/convert?url=https://www.youtube.com/watch?v=$videoId&format=${if(isMp3) "mp3" else "mp4"}",
-                    "https://ytarge.com/api/convert?url=https://www.youtube.com/watch?v=$videoId&format=${if(isMp3) "mp3" else "mp4"}"
-                )
-                for (apiUrl in apiList) {
-                    try {
-                        val req = Request.Builder()
-                            .url(apiUrl)
-                            .header("User-Agent", USER_AGENT)
-                            .header("Accept", "application/json")
-                            .build()
-                        client.newCall(req).execute().use { res ->
-                            if (res.isSuccessful) {
-                                val json = JSONObject(res.body?.string() ?: "")
-                                val url = json.optString("url") ?: json.optString("download") ?: json.optString("link")
-                                if (url.startsWith("http")) {
-                                    mediaUrl = url
-                                    if (isMp3) isAudioStreamDirect = true
-                                    AppLogger.log(context, "【YouTube-方案2】解析成功")
+            AppLogger.log(context, "【YouTube-方案2】尝试 Invidious 分布式 API...")
+            val invidiousList = listOf(
+                "https://inv.nadeko.net/api/v1/videos/$videoId",
+                "https://yewtu.be/api/v1/videos/$videoId",
+                "https://inv.tux.pizza/api/v1/videos/$videoId"
+            )
+            for (invUrl in invidiousList) {
+                try {
+                    val req = Request.Builder().url(invUrl)
+                        .header("User-Agent", USER_AGENT)
+                        .build()
+                    client.newCall(req).execute().use { res ->
+                        if (res.isSuccessful) {
+                            val json = JSONObject(res.body?.string() ?: "")
+                            if (isMp3 && json.has("adaptiveFormats")) {
+                                val adapt = json.optJSONArray("adaptiveFormats")
+                                if (adapt != null) {
+                                    for (i in 0 until adapt.length()) {
+                                        val item = adapt.getJSONObject(i)
+                                        if (item.optString("type", "").contains("audio/")) {
+                                            mediaUrl = item.optString("url")
+                                            if (!mediaUrl.isNullOrEmpty()) {
+                                                isAudioStreamDirect = true
+                                                break
+                                            }
+                                        }
+                                    }
                                 }
                             }
+                            if (mediaUrl.isNullOrEmpty() && json.has("formatStreams")) {
+                                val fs = json.optJSONArray("formatStreams")
+                                if (fs != null && fs.length() > 0) {
+                                    mediaUrl = fs.getJSONObject(0).optString("url")
+                                }
+                            }
+                            if (!mediaUrl.isNullOrEmpty()) {
+                                AppLogger.log(context, "【YouTube-方案2】Invidious 解析成功")
+                            }
                         }
-                        if (!mediaUrl.isNullOrEmpty()) break
-                    } catch (e: Exception) { }
-                }
-            } catch (e: Exception) {
-                AppLogger.log(context, "【YouTube-方案2】失败: ${e.message}")
+                    }
+                    if (!mediaUrl.isNullOrEmpty()) break
+                } catch (e: Exception) { }
             }
         }
 
-        // 方案 3: Cobalt API (备用方案 3)
+        // 方案 3: Piped API (备用)
         if (mediaUrl.isNullOrEmpty()) {
-            AppLogger.log(context, "【YouTube-方案3】尝试 Cobalt API...")
-            try {
-                val instances = listOf(
-                    "https://api.cobalt.tools/",
-                    "https://co.wuk.sh/"
-                )
-                for (instanceUrl in instances) {
-                    try {
-                        val payload = JSONObject().apply {
-                            put("url", "https://www.youtube.com/watch?v=$videoId")
-                            if (isMp3) {
-                                put("downloadMode", "audio")
-                                put("audioFormat", "mp3")
-                            } else {
-                                put("videoQuality", "720")
-                                put("downloadMode", "auto")
-                            }
-                        }
-                        val body = RequestBody.create("application/json".toMediaType(), payload.toString())
-                        val req = Request.Builder()
-                            .url(instanceUrl)
-                            .header("Accept", "application/json")
-                            .header("Content-Type", "application/json")
-                            .header("User-Agent", USER_AGENT)
-                            .post(body)
-                            .build()
-                        client.newCall(req).execute().use { res ->
+            AppLogger.log(context, "【YouTube-方案3】尝试 Piped API...")
+            val pipedList = listOf(
+                "https://pipedapi.kavin.rocks/streams/$videoId",
+                "https://pipedapi.moomoo.me/streams/$videoId"
+            )
+            for (pipedUrl in pipedList) {
+                try {
+                    val req = Request.Builder().url(pipedUrl)
+                        .header("User-Agent", USER_AGENT)
+                        .build()
+                    client.newCall(req).execute().use { res ->
+                        if (res.isSuccessful) {
                             val json = JSONObject(res.body?.string() ?: "")
-                            val status = json.optString("status")
-                            val url = json.optString("url")
-                            if ((status == "redirect" || status == "tunnel") && url.startsWith("http")) {
-                                mediaUrl = url
-                                if (isMp3) isAudioStreamDirect = true
-                                AppLogger.log(context, "【YouTube-方案3】Cobalt 解析成功")
+                            if (isMp3 && json.has("audioStreams")) {
+                                val audio = json.optJSONArray("audioStreams")
+                                if (audio != null && audio.length() > 0) {
+                                    mediaUrl = audio.getJSONObject(0).optString("url")
+                                    if (!mediaUrl.isNullOrEmpty()) isAudioStreamDirect = true
+                                }
+                            }
+                            if (mediaUrl.isNullOrEmpty() && json.has("videoStreams")) {
+                                val video = json.optJSONArray("videoStreams")
+                                if (video != null && video.length() > 0) {
+                                    mediaUrl = video.getJSONObject(0).optString("url")
+                                }
+                            }
+                            if (!mediaUrl.isNullOrEmpty()) {
+                                AppLogger.log(context, "【YouTube-方案3】Piped 解析成功")
                             }
                         }
-                        if (!mediaUrl.isNullOrEmpty()) break
-                    } catch (e: Exception) { }
-                }
-            } catch (e: Exception) {
-                AppLogger.log(context, "【YouTube-方案3】失败: ${e.message}")
+                    }
+                    if (!mediaUrl.isNullOrEmpty()) break
+                } catch (e: Exception) { }
             }
         }
 
