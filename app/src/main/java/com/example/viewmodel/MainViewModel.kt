@@ -29,7 +29,7 @@ enum class BackgroundType {
 }
 
 enum class AppIconType(val aliasName: String, val displayName: String, val drawableRes: Int) {
-    DEFAULT("com.example.MainActivity", "自定义图标", R.drawable.ic_default_custom),
+    DEFAULT("com.example.MainActivity", "自定义图标", R.drawable.ic_custom_icon),
     ORIGINAL("com.example.MainActivityOriginal", "默认极简", R.drawable.ic_app_launcher_logo_1785330614683),
     CYBER("com.example.MainActivityCyber", "赛博极光", R.drawable.icon_cyber_neon_1785330795598),
     WARM("com.example.MainActivityWarm", "暖色柔光", R.drawable.icon_warm_sunset_1785330809481),
