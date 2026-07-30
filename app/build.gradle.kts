@@ -41,12 +41,16 @@ android {
 
   buildTypes {
     release {
+      isDebuggable = false
       isCrunchPngs = false
-      isMinifyEnabled = false
+      isMinifyEnabled = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
     }
-    debug { signingConfig = signingConfigs.getByName("debugConfig") }
+    debug {
+      isDebuggable = true
+      signingConfig = signingConfigs.getByName("debugConfig")
+    }
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
