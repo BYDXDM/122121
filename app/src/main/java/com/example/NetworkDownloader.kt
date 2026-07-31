@@ -768,7 +768,7 @@ object NetworkDownloader {
         try {
             // 模拟 YouTube 内嵌播放器请求，获取加密流
             val playerReq = Request.Builder()
-                .url("https://www.youtube.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8")
+                .url("https://www.youtube.com/youtubei/v1/player?key=YOUR_YOUTUBE_API_KEY")
                 .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
                 .header("Content-Type", "application/json")
                 .header("Accept", "application/json")
