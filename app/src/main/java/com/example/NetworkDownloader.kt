@@ -768,8 +768,8 @@ object NetworkDownloader {
         try {
             // 模拟 YouTube 内嵌播放器请求，获取加密流
             val playerReq = Request.Builder()
-                .url("https://www.youtube.com/youtubei/v1/player?key=YOUR_YOUTUBE_API_KEY")
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                .url("https://www.youtube.com/youtubei/v1/player")
+                .header("User-Agent", "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip")
                 .header("Content-Type", "application/json")
                 .header("Accept", "application/json")
                 .post(RequestBody.create(
@@ -778,10 +778,10 @@ object NetworkDownloader {
                         put("videoId", videoId)
                         put("context", JSONObject().apply {
                             put("client", JSONObject().apply {
-                                put("clientName", "WEB")
-                                put("clientVersion", "2.20250101.00.00")
+                                put("clientName", "ANDROID")
+                                put("clientVersion", "19.09.37")
+                                put("androidSdkVersion", 30)
                                 put("hl", "en")
-                                put("gl", "US")
                             })
                         })
                     }.toString()
