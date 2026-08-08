@@ -207,6 +207,7 @@ fun ConverterApp(modifier: Modifier = Modifier, viewModel: MainViewModel = viewM
 
     val epubSaver = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         uri?.let { treeUri ->
+            viewModel.saveOutputDir("epub", treeUri.toString())  // 记住输出目录
             currentJob = coroutineScope.launch {
                 currentTaskName = "批量转换 EPUB"
                 taskProgress = 0f
@@ -266,6 +267,7 @@ fun ConverterApp(modifier: Modifier = Modifier, viewModel: MainViewModel = viewM
 
     val mp4Saver = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         uri?.let { treeUri ->
+            viewModel.saveOutputDir("mp4", treeUri.toString())  // 记住输出目录
             currentJob = coroutineScope.launch {
                 currentTaskName = "批量转换 MP4"
                 taskProgress = 0f
@@ -323,66 +325,80 @@ fun ConverterApp(modifier: Modifier = Modifier, viewModel: MainViewModel = viewM
         }
     }
 
-    val webpSaver = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        uri?.let { treeUri ->
-            currentJob = coroutineScope.launch {
-                currentTaskName = "批量转换 WebP"
-                taskProgress = 0f
-                taskProgressText = "正在准备文件列表..."
-                var hasError = false
-                try {
-                    val total = webpUris.size
-                    for ((index, inputUri) in webpUris.withIndex()) {
-                        if (!isActive) break
-                        val fileName = getFileName(context, inputUri)
-                        val baseName = fileName.substringBeforeLast(".")
-                        val docDir = DocumentFile.fromTreeUri(context, treeUri)
-                        val docFile = docDir?.createFile("image/jpeg", "$baseName.jpg")
-                        val fileBasePct = index.toFloat() / total
-                        val filePctRange = 1f / total
+        fun startWebpConvert(treeUri: Uri) {
+        currentJob = coroutineScope.launch {
+            currentTaskName = "批量转换 WebP"
+            taskProgress = 0f
+            taskProgressText = "正在准备文件列表..."
+            var hasError = false
+            try {
+                val total = webpUris.size
+                for ((index, inputUri) in webpUris.withIndex()) {
+                    if (!isActive) break
+                    val fileName = getFileName(context, inputUri)
+                    val baseName = fileName.substringBeforeLast(".")
+                    val docDir = DocumentFile.fromTreeUri(context, treeUri)
+                    val docFile = docDir?.createFile("image/jpeg", "$baseName.jpg")
+                    val fileBasePct = index.toFloat() / total
+                    val filePctRange = 1f / total
 
-                        taskProgress = fileBasePct
-                        taskProgressText = "转换第 ${index + 1}/$total 个: $fileName (0%)"
+                    taskProgress = fileBasePct
+                    taskProgressText = "转换第 ${index + 1}/$total 个: $fileName (0%)"
 
-                        if (docFile != null) {
-                            val success = doConversionWithRetry(context, inputUri, docFile.uri) { ctx, inUri, outUri ->
-                                convertWebpToJpg(
-                                    context = ctx,
-                                    inputUri = inUri,
-                                    outputUri = outUri,
-                                    onProgress = { pct, status ->
-                                        updateProgressOnMain(pct, "处理中 (${index + 1}/$total): $fileName (${(pct * 100).toInt()}%)")
-                                    },
-                                    basePct = fileBasePct,
-                                    pctRange = filePctRange,
-                                    taskLabel = "WebP转JPG"
-                                )
-                            }
-                            viewModel.addHistory(fileName, "WebP转JPG", success, if (success) docFile.uri.toString() else null)
-                            if (!success) hasError = true
-                        } else {
-                            hasError = true
+                    if (docFile != null) {
+                        val success = doConversionWithRetry(context, inputUri, docFile.uri) { ctx, inUri, outUri ->
+                            convertWebpToJpg(
+                                context = ctx,
+                                inputUri = inUri,
+                                outputUri = outUri,
+                                onProgress = { pct, status ->
+                                    updateProgressOnMain(pct, "处理中 (${index + 1}/$total): $fileName (${(pct * 100).toInt()}%)")
+                                },
+                                basePct = fileBasePct,
+                                pctRange = filePctRange,
+                                taskLabel = "WebP转JPG"
+                            )
                         }
+                        viewModel.addHistory(fileName, "WebP转JPG", success, if (success) docFile.uri.toString() else null)
+                        if (!success) hasError = true
+                    } else {
+                        hasError = true
                     }
-                    if (isActive) {
-                        taskProgress = 1.0f
-                        taskProgressText = "批量转换已全部完成 (100%)"
-                        if (hasError) {
-                            errorMessage = "批量转换 WebP 时有文件转换失败达3次！"
-                            showErrorDialog = true
-                        } else {
-                            Toast.makeText(context, "批量保存成功！", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                } finally {
-                    webpUris = emptyList()
-                    currentJob = null
                 }
+                if (isActive) {
+                    taskProgress = 1.0f
+                    taskProgressText = "批量转换已全部完成 (100%)"
+                    if (hasError) {
+                        errorMessage = "批量转换 WebP 时有文件转换失败达3次！"
+                        showErrorDialog = true
+                    } else {
+                        Toast.makeText(context, "批量保存成功！", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } finally {
+                webpUris = emptyList()
+                currentJob = null
             }
         }
     }
 
-    val videoSaverMp4 = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4")) { uri ->
+    fun startWebpWithMemory() {
+        // 有记住的目录直接用，否则弹选择器
+        val last = viewModel.getOutputDir("webp")
+        if (last != null) {
+            startWebpConvert(android.net.Uri.parse(last))
+        } else {
+            webpSaver.launch(null)
+        }
+    }
+
+    val webpSaver = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        uri?.let { treeUri ->
+            viewModel.saveOutputDir("webp", treeUri.toString())
+            startWebpConvert(treeUri)
+        }
+    }
+val videoSaverMp4 = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4")) { uri ->
         uri?.let {
             currentJob = coroutineScope.launch {
                 currentTaskName = "下载网络视频 (MP4)"
@@ -1016,11 +1032,20 @@ fun ConverterApp(modifier: Modifier = Modifier, viewModel: MainViewModel = viewM
                     if (webpUris.isNotEmpty()) {
                         Text(getBatchFileSizeText(context, webpUris), style = MaterialTheme.typography.bodyMedium)
                     }
-                    Button(
-                        onClick = { webpSaver.launch(null) },
-                        enabled = webpUris.isNotEmpty() && !isConverting
-                    ) {
-                        Text("批量转换并保存为JPG")
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = { startWebpWithMemory() },
+                            enabled = webpUris.isNotEmpty() && !isConverting,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(if (viewModel.getOutputDir("webp") != null) "转换到上次目录" else "选目录并转换")
+                        }
+                        OutlinedButton(
+                            onClick = { webpSaver.launch(null) },
+                            enabled = !isConverting
+                        ) {
+                            Text("换目录")
+                        }
                     }
                 }
             }
