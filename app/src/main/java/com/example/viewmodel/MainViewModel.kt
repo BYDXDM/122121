@@ -184,6 +184,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         AppLogger.log(context, "外观设置自动恢复: 图标[${savedIcon.displayName}], 背景[${savedBg.type.name}], 主题[${savedTheme.displayName}]")
     }
 
+    // ===== 输出目录记忆（每个转换类型记住上次的文件夹）=====
+    fun saveOutputDir(type: String, uriString: String) {
+        prefs.edit().putString("last_dir_$type", uriString).apply()
+    }
+
+    fun getOutputDir(type: String): String? {
+        return prefs.getString("last_dir_$type", null)
+    }
+
+    fun clearOutputDir(type: String) {
+        prefs.edit().remove("last_dir_$type").apply()
+    }
+
     fun resetAppearance(context: Context) {
         val defaultBg = BackgroundSettings(BackgroundType.DEFAULT_CUSTOM)
         _bgSettings.value = defaultBg
